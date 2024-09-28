@@ -5,6 +5,10 @@
 #include <zephyr/input/input.h>
 #include <zephyr/pm/device.h>
 
+#if CONFIG_INPUT_PINNACLE_REPORT_INTERVAL_MIN > 0
+#include <zephyr/sys/util.h> // for CLAMP
+#endif
+
 #include <zephyr/logging/log.h>
 
 #include "input_pinnacle.h"
@@ -231,7 +235,7 @@ static int pinnacle_era_write(const struct device *dev, const uint16_t addr, uin
 
 static void pinnacle_report_data(const struct device *dev) {
     const struct pinnacle_config *config = dev->config;
-    uint8_t packet[3];
+    uint8_t packet[4];
     int ret;
     ret = pinnacle_seq_read(dev, PINNACLE_STATUS1, packet, 1);
     if (ret < 0) {
@@ -244,7 +248,7 @@ static void pinnacle_report_data(const struct device *dev) {
     if (!(packet[0] & PINNACLE_STATUS1_SW_DR)) {
         return;
     }
-    ret = pinnacle_seq_read(dev, PINNACLE_2_2_PACKET0, packet, 3);
+    ret = pinnacle_seq_read(dev, PINNACLE_2_2_PACKET0, packet, 4);
     if (ret < 0) {
         LOG_ERR("read packet: %d", ret);
         return;
@@ -258,6 +262,7 @@ static void pinnacle_report_data(const struct device *dev) {
 
     int8_t dx = (int8_t)packet[1];
     int8_t dy = (int8_t)packet[2];
+    int8_t dv = (int8_t)packet[3];
 
     if (packet[0] & PINNACLE_PACKET0_X_SIGN) {
         WRITE_BIT(dx, 7, 1);
@@ -272,19 +277,84 @@ static void pinnacle_report_data(const struct device *dev) {
         data->in_int = true;
     }
 
+#if CONFIG_INPUT_PINNACLE_REPORT_INTERVAL_MIN > 0
+    bool has_key_report = false;
+#endif
+
     if (!config->no_taps && (btn || data->btn_cache)) {
         for (int i = 0; i < 3; i++) {
             uint8_t btn_val = btn & BIT(i);
             if (btn_val != (data->btn_cache & BIT(i))) {
                 input_report_key(dev, INPUT_BTN_0 + i, btn_val ? 1 : 0, false, K_FOREVER);
+                #if CONFIG_INPUT_PINNACLE_REPORT_INTERVAL_MIN > 0
+                    has_key_report = true;
+                #endif
             }
         }
     }
 
     data->btn_cache = btn;
 
-    input_report_rel(dev, INPUT_REL_X, dx, false, K_FOREVER);
-    input_report_rel(dev, INPUT_REL_Y, dy, true, K_FOREVER);
+#if CONFIG_INPUT_PINNACLE_REPORT_INTERVAL_MIN > 0
+
+    static int64_t adx = 0;
+    static int64_t ady = 0;
+    static int64_t adv = 0;
+    static int64_t last_smp_time = 0;
+    static int64_t last_rpt_time = 0;
+    int64_t now = k_uptime_get();
+    if (now - last_smp_time >= CONFIG_INPUT_PINNACLE_REPORT_INTERVAL_MIN) {
+        adx = ady = 0;
+    }
+    last_smp_time = now;
+    adx += dx;
+    ady += dy;
+    adv += dv;
+    if (now - last_rpt_time < CONFIG_INPUT_PINNACLE_REPORT_INTERVAL_MIN) {
+        // force report on tapped and scrolled
+        if (!has_key_report && !adv) {
+            return;
+        }
+    }
+
+    // clamp report value
+    int16_t rx = (int16_t)CLAMP(adx, INT16_MIN, INT16_MAX);
+    int16_t ry = (int16_t)CLAMP(ady, INT16_MIN, INT16_MAX);
+    int16_t rv = (int16_t)CLAMP(adv, INT16_MIN, INT16_MAX);
+    bool have_x = rx != 0;
+    bool have_y = ry != 0;
+    bool have_v = rv != 0;
+
+    if (have_x || have_y || have_v) {
+        last_rpt_time = now;
+        adx = ady = adv = 0;
+        if (have_x) {
+            input_report_rel(dev, INPUT_REL_X, rx, !have_y && !have_v, K_NO_WAIT);
+        }
+        if (have_y) {
+            input_report_rel(dev, INPUT_REL_Y, ry, !have_v, K_NO_WAIT);
+        }
+        if (have_v) {
+            input_report_rel(dev, INPUT_REL_WHEEL, rv, true, K_NO_WAIT);
+        }
+    }
+    else if (has_key_report) {
+        // force sync key report
+        input_report_rel(dev, INPUT_REL_X, 0, true, K_NO_WAIT);
+    }
+
+#else /* CONFIG_INPUT_PINNACLE_REPORT_INTERVAL_MIN > 0 */
+
+    // either delta xy, or scroll wheel should be read
+    if (dv) {
+        input_report_rel(dev, INPUT_REL_WHEEL, dv, true, K_FOREVER);
+    }
+    else {
+        input_report_rel(dev, INPUT_REL_X, dx, false, K_FOREVER);
+        input_report_rel(dev, INPUT_REL_Y, dy, true, K_FOREVER);
+    }
+
+#endif /* CONFIG_INPUT_PINNACLE_REPORT_INTERVAL_MIN > 0 */
 
     return;
 }
@@ -546,6 +616,7 @@ static int pinnacle_pm_action(const struct device *dev, enum pm_device_action ac
         .no_taps = DT_INST_PROP(n, no_taps),                                                       \
         .x_axis_z_min = DT_INST_PROP_OR(n, x_axis_z_min, 5),                                       \
         .y_axis_z_min = DT_INST_PROP_OR(n, y_axis_z_min, 4),                                       \
+        .no_smoothing = DT_INST_PROP(n, no_smoothing),                                             \
         .sensitivity = DT_INST_ENUM_IDX_OR(n, sensitivity, PINNACLE_SENSITIVITY_1X),               \
         .dr = GPIO_DT_SPEC_GET_OR(DT_DRV_INST(n), dr_gpios, {}),                                   \
     };                                                                                             \

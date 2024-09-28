@@ -10,3 +10,10 @@ menuconfig INPUT_PINNACLE
     depends on DT_HAS_CIRQUE_PINNACLE_ENABLED
     help
       Enable driver for Cirque Pinnacle trackpads
+
+config INPUT_PINNACLE_REPORT_INTERVAL_MIN
+    int "Cirque Pinnacl's minimum report rate"
+    default 0
+    help
+      Default minimum report interval in milliseconds.
+      Slow down input reporting for hid queue over the air.
