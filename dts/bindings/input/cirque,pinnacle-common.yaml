@@ -8,6 +8,8 @@ properties:
     type: boolean
   no-taps:
     type: boolean
+  no-smoothing:
+    type: boolean
   sensitivity:
     type: string
     enum:

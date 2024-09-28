@@ -37,15 +37,24 @@
 #define PINNACLE_FEED_CFG2_DIS_GE BIT(4)      // Disable GlideExtend
 #define PINNACLE_FEED_CFG2_EN_BTN_SCRL BIT(6) // Enable Button Scroll
 #define PINNACLE_FEED_CFG2_ROTATE_90 BIT(7)   // Swap X & Y
-#define PINNACLE_CAL_CFG 0x07                 // Contains calibration configuration bits.
-#define PINNACLE_PS2_AUX 0x08                 // Contains Data register for PS/2 Aux Control.
-#define PINNACLE_SAMPLE 0x09                  // Sample Rate Number of samples generated per second.
-#define PINNACLE_Z_IDLE 0x0A         // Number of Z=0 packets sent when Z goes from >0 to 0.
-#define PINNACLE_Z_SCALER 0x0B       // Contains the pen Z_On threshold.
-#define PINNACLE_SLEEP_INTERVAL 0x0C // Sleep Interval
-#define PINNACLE_SLEEP_TIMER 0x0D    // Sleep Timer
-#define PINNACLE_AG_PACKET0 0x10     // trackpad Data (Pinnacle AG)
-#define PINNACLE_2_2_PACKET0 0x12    // trackpad Data
+#define PINNACLE_FEED_CFG3 0x06             // Contains feed operation and configuration bits.
+#define PINNACLE_FEED_CFG3_BTNS_456_TO_123_IN_REL BIT(0)
+#define PINNACLE_FEED_CFG3_DIS_SMO BIT(1)   // Disable smoothing
+#define PINNACLE_FEED_CFG3_DIS_PALM_NERD_MEAS BIT(3)
+#define PINNACLE_FEED_CFG3_DIS_NOISE_AVOIDANCE BIT(4)
+#define PINNACLE_FEED_CFG3_DIS_WRAP_LOCKOUT BIT(5)
+#define PINNACLE_FEED_CFG3_DIS_DYNAMIC_EMI_ADJ BIT(6)
+#define PINNACLE_FEED_CFG3_DIS_HW_EMI_DETECT BIT(7)
+#define PINNACLE_FEED_CFG3_DIS_SW_EMI_DETECT BIT(8)
+#define PINNACLE_CAL_CFG 0x07               // Contains calibration configuration bits.
+#define PINNACLE_PS2_AUX 0x08               // Contains Data register for PS/2 Aux Control.
+#define PINNACLE_SAMPLE 0x09                // Sample Rate Number of samples generated per second.
+#define PINNACLE_Z_IDLE 0x0A                // Number of Z=0 packets sent when Z goes from >0 to 0.
+#define PINNACLE_Z_SCALER 0x0B              // Contains the pen Z_On threshold.
+#define PINNACLE_SLEEP_INTERVAL 0x0C        // Sleep Interval
+#define PINNACLE_SLEEP_TIMER 0x0D           // Sleep Timer
+#define PINNACLE_AG_PACKET0 0x10            // trackpad Data (Pinnacle AG)
+#define PINNACLE_2_2_PACKET0 0x12           // trackpad Data
 #define PINNACLE_REG_COUNT 0x18
 
 #define PINNACLE_REG_ERA_VALUE 0x1B
@@ -100,6 +109,7 @@ struct pinnacle_config {
     pinnacle_write_t write;
 
     bool rotate_90, sleep_en, no_taps;
+    bool no_smoothing;
     enum pinnacle_sensitivity sensitivity;
     uint8_t x_axis_z_min, y_axis_z_min;
     const struct gpio_dt_spec dr;

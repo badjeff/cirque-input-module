@@ -464,6 +464,15 @@ static int pinnacle_init(const struct device *dev) {
         LOG_DBG("Failed to update sleep interaval %d", ret);
     }
 
+    uint8_t feed_cfg3 = 0x00;
+    if (config->no_smoothing) {
+        feed_cfg3 |= PINNACLE_FEED_CFG3_DIS_SMO;
+    }
+    ret = pinnacle_write(dev, PINNACLE_FEED_CFG3, feed_cfg3);
+    if (ret < 0) {
+        LOG_ERR("can't write %d", ret);
+        return ret;
+    }
     uint8_t feed_cfg2 = PINNACLE_FEED_CFG2_EN_IM | PINNACLE_FEED_CFG2_EN_BTN_SCRL;
     if (config->no_taps) {
         feed_cfg2 |= PINNACLE_FEED_CFG2_DIS_TAP;
