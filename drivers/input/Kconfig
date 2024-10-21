@@ -17,3 +17,15 @@ config INPUT_PINNACLE_REPORT_INTERVAL_MIN
     help
       Default minimum report interval in milliseconds.
       Slow down input reporting for hid queue over the air.
+
+if INPUT_PINNACLE
+
+if ZMK_MOUSE
+
+config ZMK_INPUT_PINNACLE_IDLE_SLEEPER
+    bool "Pinnacle Sleep linked to ZMK idle state"
+    default y
+
+endif
+
+endif
